@@ -1,3 +1,151 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Calculadora Termodinâmica</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+
+*{
+  margin:0;
+  padding:0;
+  box-sizing:border-box;
+}
+
+body{
+  font-family:Arial, sans-serif;
+  background:#0f172a;
+  color:white;
+  min-height:100vh;
+  padding:20px;
+}
+
+.container{
+  max-width:550px;
+  margin:auto;
+  background:#1e293b;
+  padding:25px;
+  border-radius:16px;
+  box-shadow:0 0 20px rgba(0,0,0,0.3);
+}
+
+h1{
+  text-align:center;
+  margin-bottom:25px;
+  color:#22c55e;
+}
+
+label{
+  display:block;
+  margin-top:18px;
+  margin-bottom:6px;
+  font-weight:bold;
+}
+
+input,
+select{
+  width:100%;
+  padding:12px;
+  border:none;
+  border-radius:10px;
+  font-size:16px;
+}
+
+button{
+  width:100%;
+  margin-top:20px;
+  padding:14px;
+  border:none;
+  border-radius:12px;
+  background:#22c55e;
+  color:#000;
+  font-size:16px;
+  font-weight:bold;
+  cursor:pointer;
+  transition:0.2s;
+}
+
+button:hover{
+  opacity:0.9;
+}
+
+.result{
+  margin-top:25px;
+  background:#020617;
+  padding:18px;
+  border-radius:12px;
+  line-height:1.8;
+}
+
+small{
+  color:#94a3b8;
+}
+
+.footer{
+  text-align:center;
+  margin-top:20px;
+  font-size:12px;
+  color:#94a3b8;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>Calculadora Termodinâmica</h1>
+
+<label>Fluido</label>
+<select id="fluido" onchange="recalcular()">
+  <option value="agua">Água</option>
+  <option value="etanol">Etanol</option>
+  <option value="metanol">Metanol</option>
+  <option value="isopropanol">Isopropanol</option>
+</select>
+
+<label>Tipo de Pressão</label>
+<select id="tipoPressao" onchange="recalcular()">
+  <option value="abs">Absoluta (bar abs)</option>
+  <option value="rel">Relativa (bar g)</option>
+</select>
+
+<label>Temperatura (°C)</label>
+<input
+  type="number"
+  id="temp"
+  placeholder="Digite a temperatura"
+  oninput="calcFromTemp()"
+>
+
+<label>Pressão</label>
+<input
+  type="number"
+  id="press"
+  placeholder="Digite a pressão"
+  oninput="calcFromPress()"
+>
+
+<div class="result" id="resultado">
+Aguardando entrada...
+</div>
+
+<button onclick="gerarPDF()">
+Gerar PDF
+</button>
+
+<div class="footer">
+Base de cálculo: Equação de Antoine
+</div>
+
+</div>
+
 <script>
 
 const fluido = document.getElementById('fluido');
@@ -9,10 +157,31 @@ const resultado = document.getElementById('resultado');
 const Patm = 1.013;
 
 const fluidos = {
-  agua: {A:8.14019, B:1810.94, C:244.485},
-  etanol: {A:8.20417, B:1642.89, C:230.300},
-  metanol: {A:8.08097, B:1582.27, C:239.726},
-  isopropanol: {A:8.11778, B:1580.92, C:219.620}
+
+  agua: {
+    A: 8.14019,
+    B: 1810.94,
+    C: 244.485
+  },
+
+  etanol: {
+    A: 8.20417,
+    B: 1642.89,
+    C: 230.300
+  },
+
+  metanol: {
+    A: 8.08097,
+    B: 1582.27,
+    C: 239.726
+  },
+
+  isopropanol: {
+    A: 8.11778,
+    B: 1580.92,
+    C: 219.620
+  }
+
 };
 
 function getConstantes(){
@@ -20,26 +189,34 @@ function getConstantes(){
 }
 
 function tempToPressure(T){
-  const {A,B,C} = getConstantes();
-  const P_mmHg = 10 ** (A - (B / (T + C)));
+
+  const {A, B, C} = getConstantes();
+
+  const P_mmHg =
+    10 ** (A - (B / (T + C)));
+
   return P_mmHg * 0.00133322;
 }
 
 function pressureToTemp(Pabs){
+
   let Tmin = 0;
-  let Tmax = 200;
+  let Tmax = 250;
   let Tmid;
 
-  for(let i=0;i<40;i++){
+  for(let i = 0; i < 50; i++){
+
     Tmid = (Tmin + Tmax) / 2;
 
-    const Pcalc = tempToPressure(Tmid);
+    const Pcalc =
+      tempToPressure(Tmid);
 
     if(Pcalc > Pabs){
       Tmax = Tmid;
     } else {
       Tmin = Tmid;
     }
+
   }
 
   return Tmid;
@@ -49,25 +226,45 @@ function getTipo(){
   return tipoPressao.value;
 }
 
+function recalcular(){
+
+  if(temp.value !== ''){
+    calcFromTemp();
+  }
+
+  if(press.value !== '' && temp.value === ''){
+    calcFromPress();
+  }
+
+}
+
 function calcFromTemp(){
 
   if(temp.value === ''){
+
     press.value = '';
-    resultado.innerHTML = 'Aguardando entrada...';
+
+    resultado.innerHTML =
+      'Aguardando entrada...';
+
     return;
   }
 
-  const T = Number(temp.value);
+  const T =
+    Number(temp.value);
 
   if(isNaN(T)) return;
 
-  let Pabs = tempToPressure(T);
+  let Pabs =
+    tempToPressure(T);
 
-  let Pmostrar = (getTipo() === 'rel')
+  let Pmostrar =
+    (getTipo() === 'rel')
     ? (Pabs - Patm)
     : Pabs;
 
-  press.value = Pmostrar.toFixed(3);
+  press.value =
+    Pmostrar.toFixed(3);
 
   mostrarResultado(T, Pabs);
 }
@@ -75,69 +272,101 @@ function calcFromTemp(){
 function calcFromPress(){
 
   if(press.value === ''){
+
     temp.value = '';
-    resultado.innerHTML = 'Aguardando entrada...';
+
+    resultado.innerHTML =
+      'Aguardando entrada...';
+
     return;
   }
 
-  let Pinput = Number(press.value);
+  let Pinput =
+    Number(press.value);
 
   if(isNaN(Pinput)) return;
 
-  let Pabs = (getTipo() === 'rel')
+  let Pabs =
+    (getTipo() === 'rel')
     ? (Pinput + Patm)
     : Pinput;
 
-  const T = pressureToTemp(Pabs);
+  if(Pabs <= 0){
 
-  temp.value = T.toFixed(1);
+    resultado.innerHTML = `
+      Pressão inválida.
+    `;
+
+    return;
+  }
+
+  const T =
+    pressureToTemp(Pabs);
+
+  temp.value =
+    T.toFixed(2);
 
   mostrarResultado(T, Pabs);
 }
 
 function mostrarResultado(T, Pabs){
 
-  const fluidoNome = fluido.selectedOptions[0].text;
+  const fluidoNome =
+    fluido.selectedOptions[0].text;
 
-  const Prel = Pabs - Patm;
+  const Prel =
+    Pabs - Patm;
 
   resultado.innerHTML = `
-    <b>Resultado:</b><br>
-    Fluido: ${fluidoNome}<br>
-    Temperatura: ${T.toFixed(2)} °C<br>
-    Pressão absoluta: ${Pabs.toFixed(3)} bar<br>
-    Pressão relativa: ${Prel.toFixed(3)} bar<br>
-    <small>Base: Equação de Antoine</small>
+
+    <b>Resultado:</b><br><br>
+
+    <b>Fluido:</b>
+    ${fluidoNome}<br>
+
+    <b>Temperatura:</b>
+    ${T.toFixed(2)} °C<br>
+
+    <b>Pressão absoluta:</b>
+    ${Pabs.toFixed(3)} bar<br>
+
+    <b>Pressão relativa:</b>
+    ${Prel.toFixed(3)} bar<br><br>
+
+    <small>
+    Base de cálculo:
+    Equação de Antoine
+    </small>
+
   `;
 }
 
 function gerarPDF(){
 
-  const { jsPDF } = window.jspdf;
+  const { jsPDF } =
+    window.jspdf;
 
-  const pdf = new jsPDF();
+  const pdf =
+    new jsPDF();
 
-  const T = temp.value;
+  const T =
+    temp.value;
 
-  const tipo = tipoPressao.value;
+  const tipo =
+    tipoPressao.value;
 
-  const fluidoNome = fluido.selectedOptions[0].text;
+  const fluidoNome =
+    fluido.selectedOptions[0].text;
 
-  let Pinput = Number(press.value);
+  let Pinput =
+    Number(press.value);
 
-  let Pabs = (tipo === 'rel')
+  let Pabs =
+    (tipo === 'rel')
     ? (Pinput + Patm)
     : Pinput;
 
-  let Prel = Pabs - Patm;
+  let Prel =
+    Pabs - Patm;
 
-  pdf.text('Relatório Termodinâmico', 10, 10);
-  pdf.text(`Fluido: ${fluidoNome}`, 10, 20);
-  pdf.text(`Temperatura: ${T} °C`, 10, 30);
-  pdf.text(`Pressão absoluta: ${Pabs.toFixed(3)} bar`, 10, 40);
-  pdf.text(`Pressão relativa: ${Prel.toFixed(3)} bar`, 10, 50);
-
-  pdf.save('relatorio_termodinamico.pdf');
-}
-
-</script>
+  pdf.setFont
