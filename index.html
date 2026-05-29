@@ -1,4 +1,365 @@
-<!DOCTYPE html>
+<!DOCTYPE html><!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Calculadora Termodinâmica</title>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+<style>
+
+body{
+  font-family:Arial;
+  background:#0f172a;
+  color:white;
+  padding:20px;
+}
+
+.container{
+  max-width:550px;
+  margin:auto;
+  background:#1e293b;
+  padding:25px;
+  border-radius:16px;
+}
+
+h1{
+  text-align:center;
+  margin-bottom:25px;
+  color:#22c55e;
+}
+
+label{
+  display:block;
+  margin-top:15px;
+}
+
+input, select{
+  width:100%;
+  padding:12px;
+  margin-top:5px;
+  border:none;
+  border-radius:10px;
+  font-size:16px;
+}
+
+button{
+  width:100%;
+  margin-top:20px;
+  padding:14px;
+  border:none;
+  border-radius:12px;
+  background:#22c55e;
+  color:black;
+  font-weight:bold;
+  cursor:pointer;
+}
+
+.result{
+  margin-top:20px;
+  background:#020617;
+  padding:15px;
+  border-radius:12px;
+  line-height:1.8;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>Calculadora Termodinâmica</h1>
+
+<label>Fluido</label>
+<select id="fluido">
+  <option value="agua">Água</option>
+  <option value="etanol">Etanol</option>
+  <option value="metanol">Metanol</option>
+  <option value="isopropanol">Isopropanol</option>
+</select>
+
+<label>Tipo de Pressão</label>
+<select id="tipoPressao">
+  <option value="abs">Absoluta (bar abs)</option>
+  <option value="rel">Relativa (bar g)</option>
+</select>
+
+<label>Temperatura (°C)</label>
+<input
+  type="number"
+  id="temp"
+  placeholder="Digite a temperatura"
+>
+
+<label>Pressão</label>
+<input
+  type="number"
+  id="press"
+  placeholder="Digite a pressão"
+>
+
+<div class="result" id="resultado">
+Aguardando entrada...
+</div>
+
+<button onclick="gerarPDF()">
+Gerar PDF
+</button>
+
+</div>
+
+<script>
+
+const fluido = document.getElementById('fluido');
+const tipoPressao = document.getElementById('tipoPressao');
+const temp = document.getElementById('temp');
+const press = document.getElementById('press');
+const resultado = document.getElementById('resultado');
+
+const Patm = 1.013;
+
+let bloqueio = false;
+
+const fluidos = {
+
+  agua: {
+    A:8.14019,
+    B:1810.94,
+    C:244.485
+  },
+
+  etanol: {
+    A:8.20417,
+    B:1642.89,
+    C:230.300
+  },
+
+  metanol: {
+    A:8.08097,
+    B:1582.27,
+    C:239.726
+  },
+
+  isopropanol: {
+    A:8.11778,
+    B:1580.92,
+    C:219.620
+  }
+
+};
+
+function getConstantes(){
+  return fluidos[fluido.value];
+}
+
+function tempToPressure(T){
+
+  const {A,B,C} = getConstantes();
+
+  const PmmHg =
+    10 ** (A - (B / (T + C)));
+
+  return PmmHg * 0.00133322;
+}
+
+function pressureToTemp(Pabs){
+
+  let Tmin = 0;
+  let Tmax = 250;
+  let Tmid;
+
+  for(let i=0;i<50;i++){
+
+    Tmid = (Tmin + Tmax) / 2;
+
+    const Pcalc =
+      tempToPressure(Tmid);
+
+    if(Pcalc > Pabs){
+      Tmax = Tmid;
+    }else{
+      Tmin = Tmid;
+    }
+
+  }
+
+  return Tmid;
+}
+
+function mostrarResultado(T, Pabs){
+
+  const Prel =
+    Pabs - Patm;
+
+  resultado.innerHTML = `
+
+    <b>Resultado:</b><br><br>
+
+    <b>Fluido:</b>
+    ${fluido.selectedOptions[0].text}<br>
+
+    <b>Temperatura:</b>
+    ${T.toFixed(2)} °C<br>
+
+    <b>Pressão absoluta:</b>
+    ${Pabs.toFixed(3)} bar<br>
+
+    <b>Pressão relativa:</b>
+    ${Prel.toFixed(3)} bar<br><br>
+
+    <small>
+    Base de cálculo:
+    Equação de Antoine
+    </small>
+
+  `;
+}
+
+temp.addEventListener('input', () => {
+
+  if(bloqueio) return;
+
+  if(temp.value === ''){
+
+    press.value = '';
+
+    resultado.innerHTML =
+      'Aguardando entrada...';
+
+    return;
+  }
+
+  bloqueio = true;
+
+  const T =
+    Number(temp.value);
+
+  let Pabs =
+    tempToPressure(T);
+
+  let Pmostrar =
+    tipoPressao.value === 'rel'
+    ? (Pabs - Patm)
+    : Pabs;
+
+  press.value =
+    Pmostrar.toFixed(3);
+
+  mostrarResultado(T, Pabs);
+
+  bloqueio = false;
+
+});
+
+press.addEventListener('input', () => {
+
+  if(bloqueio) return;
+
+  if(press.value === ''){
+
+    temp.value = '';
+
+    resultado.innerHTML =
+      'Aguardando entrada...';
+
+    return;
+  }
+
+  bloqueio = true;
+
+  let Pinput =
+    Number(press.value);
+
+  let Pabs =
+    tipoPressao.value === 'rel'
+    ? (Pinput + Patm)
+    : Pinput;
+
+  const T =
+    pressureToTemp(Pabs);
+
+  temp.value =
+    T.toFixed(2);
+
+  mostrarResultado(T, Pabs);
+
+  bloqueio = false;
+
+});
+
+function gerarPDF(){
+
+  const { jsPDF } =
+    window.jspdf;
+
+  const pdf =
+    new jsPDF();
+
+  const T =
+    Number(temp.value);
+
+  let Pinput =
+    Number(press.value);
+
+  let Pabs =
+    tipoPressao.value === 'rel'
+    ? (Pinput + Patm)
+    : Pinput;
+
+  let Prel =
+    Pabs - Patm;
+
+  pdf.text(
+    'Relatório Termodinâmico',
+    10,
+    20
+  );
+
+  pdf.text(
+    `Fluido: ${fluido.selectedOptions[0].text}`,
+    10,
+    40
+  );
+
+  pdf.text(
+    `Temperatura: ${T.toFixed(2)} °C`,
+    10,
+    50
+  );
+
+  pdf.text(
+    `Pressão absoluta: ${Pabs.toFixed(3)} bar`,
+    10,
+    60
+  );
+
+  pdf.text(
+    `Pressão relativa: ${Prel.toFixed(3)} bar`,
+    10,
+    70
+  );
+
+  pdf.text(
+    'Base: Equação de Antoine',
+    10,
+    90
+  );
+
+  pdf.save(
+    'relatorio_termodinamico.pdf'
+  );
+
+}
+
+</script>
+
+</body>
+</html>
 <html lang="pt-BR">
 
 <head>
