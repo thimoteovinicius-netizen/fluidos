@@ -3,101 +3,355 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Toolkit Técnico V2</title>
+<title>Calculadora Termodinâmica - Água Saturada</title>
+
 <style>
-body{margin:0;font-family:Arial;background:#0f172a;color:#fff}
-.sidebar{position:fixed;left:0;top:0;width:220px;height:100%;background:#111827;padding:15px}
-.sidebar h2{font-size:18px}
-.sidebar button{width:100%;padding:10px;margin:5px 0;border:none;border-radius:8px;cursor:pointer}
-.content{margin-left:240px;padding:20px}
-.tab{display:none;background:#1e293b;padding:20px;border-radius:12px}
-.tab.active{display:block}
-input,select{width:100%;padding:10px;margin:5px 0;border-radius:8px;border:none}
-button.action{background:#22c55e}
+
+body{
+    background:#0f172a;
+    color:white;
+    font-family:Arial,sans-serif;
+    margin:0;
+    padding:20px;
+}
+
+.container{
+    max-width:800px;
+    margin:auto;
+}
+
+.card{
+    background:#1e293b;
+    padding:20px;
+    border-radius:12px;
+    margin-top:20px;
+}
+
+h1{
+    text-align:center;
+}
+
+label{
+    display:block;
+    margin-top:12px;
+}
+
+input,select{
+    width:100%;
+    padding:12px;
+    border:none;
+    border-radius:8px;
+    margin-top:5px;
+    font-size:16px;
+}
+
+button{
+    width:100%;
+    padding:14px;
+    margin-top:20px;
+    border:none;
+    border-radius:8px;
+    background:#22c55e;
+    color:white;
+    font-size:18px;
+    cursor:pointer;
+}
+
+.resultado{
+    margin-top:20px;
+    background:#0f172a;
+    padding:15px;
+    border-radius:10px;
+}
+
+.item{
+    margin-bottom:8px;
+}
+
+.historico{
+    margin-top:20px;
+    background:#0b1220;
+    padding:15px;
+    border-radius:10px;
+}
+
 </style>
+
 </head>
+
 <body>
 
-<div class="sidebar">
-<h2>Toolkit Técnico V2</h2>
-<button onclick="openTab('inicio')">🏠 Início</button>
-<button onclick="openTab('eletrica')">⚡ Elétrica</button>
-<button onclick="openTab('conversoes')">📏 Conversões</button>
-<button onclick="openTab('termo')">🌡️ Termodinâmica</button>
-<button onclick="openTab('cabos')">🔌 Cabos</button>
-<button onclick="openTab('nr13')">🏭 NR-13</button>
+<div class="container">
+
+<h1>🌡️ Calculadora Termodinâmica</h1>
+
+<div class="card">
+
+<label>Modo</label>
+
+<select id="modo">
+
+<option value="tp">
+Temperatura → Pressão
+</option>
+
+<option value="pt">
+Pressão → Temperatura
+</option>
+
+</select>
+
+<label id="rotuloEntrada">
+Temperatura (°C)
+</label>
+
+<input
+type="number"
+step="0.01"
+id="entrada">
+
+<button onclick="calcular()">
+CALCULAR
+</button>
+
+<div id="resultado" class="resultado">
+
+Aguardando cálculo...
+
 </div>
 
-<div class="content">
+<div class="historico">
 
-<div id="inicio" class="tab active">
-<h1>Toolkit Técnico V2</h1>
-<p>Base para elétrica, termodinâmica, NR-13 e engenharia.</p>
+<h3>Histórico</h3>
+
+<div id="historico">
+Nenhum cálculo realizado.
 </div>
 
-<div id="eletrica" class="tab">
-<h2>Lei de Ohm</h2>
-<input id="v" placeholder="Volts (V)">
-<input id="i" placeholder="Corrente (A)">
-<input id="r" placeholder="Resistência (Ω)">
-<button class="action" onclick="ohm()">Calcular</button>
-<p id="ohmRes"></p>
 </div>
 
-<div id="conversoes" class="tab">
-<h2>Conversão de Pressão</h2>
-<input type="number" id="bar" placeholder="Pressão em bar">
-<button class="action" onclick="conv()">Converter</button>
-<p id="convRes"></p>
-</div>
-
-<div id="termo" class="tab">
-<h2>Termodinâmica</h2>
-<p>Módulo reservado para integração da calculadora de saturação.</p>
-</div>
-
-<div id="cabos" class="tab">
-<h2>Cabos e Disjuntores</h2>
-<p>Módulo reservado para V2.1.</p>
-</div>
-
-<div id="nr13" class="tab">
-<h2>NR-13</h2>
-<p>Módulo reservado para V2.1.</p>
 </div>
 
 </div>
 
 <script>
-function openTab(id){
- document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
- document.getElementById(id).classList.add('active');
+
+const historico=[];
+
+document
+.getElementById("modo")
+.addEventListener("change",function(){
+
+const lbl =
+document.getElementById("rotuloEntrada");
+
+if(this.value==="tp"){
+    lbl.innerHTML="Temperatura (°C)";
+}else{
+    lbl.innerHTML="Pressão Absoluta (bar)";
 }
 
-function ohm(){
- let V=parseFloat(document.getElementById('v').value);
- let I=parseFloat(document.getElementById('i').value);
- let R=parseFloat(document.getElementById('r').value);
+});
 
- if(!isNaN(V)&&!isNaN(I)&&isNaN(R)) R=V/I;
- else if(!isNaN(V)&&!isNaN(R)&&isNaN(I)) I=V/R;
- else if(!isNaN(I)&&!isNaN(R)&&isNaN(V)) V=I*R;
+function pressaoSaturacao(T){
 
- document.getElementById('ohmRes').innerHTML =
- `V=${V||0} V<br>I=${I||0} A<br>R=${R||0} Ω`;
+// Equação de Tetens
+// Resultado em kPa
+
+const p =
+0.61078 *
+Math.exp(
+(17.27*T)/(T+237.3)
+);
+
+return p;
+
 }
 
-function conv(){
- let bar=parseFloat(document.getElementById('bar').value)||0;
- let psi=bar*14.5038;
- let torr=bar*750.062;
- let mtorr=torr*1000;
+function temperaturaSaturacao(kPa){
 
- document.getElementById('convRes').innerHTML =
- `PSI: ${psi.toFixed(2)}<br>
- Torr: ${torr.toFixed(2)}<br>
- mTorr: ${mtorr.toFixed(0)}`;
+let Tmin=0;
+let Tmax=200;
+
+for(let i=0;i<60;i++){
+
+let Tmid=(Tmin+Tmax)/2;
+
+let pmid=
+pressaoSaturacao(Tmid);
+
+if(pmid<kPa){
+Tmin=Tmid;
 }
+else{
+Tmax=Tmid;
+}
+
+}
+
+return (Tmin+Tmax)/2;
+
+}
+
+function calcular(){
+
+const modo=
+document.getElementById("modo").value;
+
+const valor=
+parseFloat(
+document.getElementById("entrada").value
+);
+
+if(isNaN(valor)){
+alert("Digite um valor.");
+return;
+}
+
+let temperatura;
+let bara;
+
+if(modo==="tp"){
+
+temperatura=valor;
+
+const kPa=
+pressaoSaturacao(temperatura);
+
+bara=kPa/100;
+
+}
+else{
+
+bara=valor;
+
+const kPa=
+bara*100;
+
+temperatura=
+temperaturaSaturacao(kPa);
+
+}
+
+mostrarResultado(
+temperatura,
+bara
+);
+
+}
+
+function mostrarResultado(
+temperatura,
+bara
+){
+
+const barg=
+bara-1.01325;
+
+const kPa=
+bara*100;
+
+const MPa=
+bara/10;
+
+const psi=
+bara*14.5038;
+
+const torr=
+bara*750.0617;
+
+const mtorr=
+torr*1000;
+
+let faixa="";
+
+if(bara<1){
+
+faixa="Subatmosférico";
+
+}
+else if(bara<3){
+
+faixa="Esterilização Hospitalar";
+
+}
+else if(bara<6){
+
+faixa="Esterilização Industrial";
+
+}
+else{
+
+faixa="Alta Pressão";
+
+}
+
+document
+.getElementById("resultado")
+.innerHTML=`
+
+<div class="item">
+<b>Temperatura:</b>
+${temperatura.toFixed(2)} °C
+</div>
+
+<div class="item">
+<b>Pressão Absoluta:</b>
+${bara.toFixed(4)} bar(a)
+</div>
+
+<div class="item">
+<b>Pressão Manométrica:</b>
+${barg.toFixed(4)} bar(g)
+</div>
+
+<div class="item">
+<b>kPa:</b>
+${kPa.toFixed(2)}
+</div>
+
+<div class="item">
+<b>MPa:</b>
+${MPa.toFixed(4)}
+</div>
+
+<div class="item">
+<b>PSI:</b>
+${psi.toFixed(2)}
+</div>
+
+<div class="item">
+<b>Torr:</b>
+${torr.toFixed(0)}
+</div>
+
+<div class="item">
+<b>mTorr:</b>
+${mtorr.toFixed(0)}
+</div>
+
+<div class="item">
+<b>Classificação:</b>
+${faixa}
+</div>
+
+`;
+
+historico.unshift(
+`${temperatura.toFixed(2)} °C → ${bara.toFixed(4)} bar(a)`
+);
+
+if(historico.length>10){
+historico.pop();
+}
+
+document
+.getElementById("historico")
+.innerHTML=
+historico.join("<br>");
+
+}
+
 </script>
 
 </body>
